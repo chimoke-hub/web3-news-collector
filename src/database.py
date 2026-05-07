@@ -88,7 +88,18 @@ def save_articles(articles: list[dict], db_path: Path | None = None) -> tuple[in
                 )
                 inserted += 1
             except sqlite3.IntegrityError:
-                # Duplicate URL
+                # 重複URL — 翻訳だけ更新する
+                title_ja = article.get("title_ja", "")
+                summary_ja = article.get("summary_ja", "")
+                if title_ja or summary_ja:
+                    conn.execute(
+                        """
+                        UPDATE articles
+                        SET title_ja = :title_ja, summary_ja = :summary_ja
+                        WHERE url = :url AND (title_ja IS NULL OR title_ja = '')
+                        """,
+                        {"url": article.get("url", ""), "title_ja": title_ja, "summary_ja": summary_ja},
+                    )
                 skipped += 1
 
         conn.commit()
