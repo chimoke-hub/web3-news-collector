@@ -54,8 +54,8 @@ def main() -> None:
     inserted, skipped = save_articles(all_articles)
     logger.info("Saved to DB: %d new, %d duplicates skipped", inserted, skipped)
 
-    # Retrieve today's articles for output
-    articles_by_category = get_articles_for_date(now_jst)
+    # Retrieve today's articles for output (published since yesterday 00:00 JST)
+    articles_by_category = get_articles_for_date(since_utc)
     domestic_count = len(articles_by_category.get("domestic", []))
     international_count = len(articles_by_category.get("international", []))
     logger.info("Today's articles — 国内: %d, 海外: %d", domestic_count, international_count)

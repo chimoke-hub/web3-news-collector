@@ -108,22 +108,22 @@ def save_articles(articles: list[dict], db_path: Path | None = None) -> tuple[in
     return inserted, skipped
 
 
-def get_articles_for_date(target_date: datetime, db_path: Path | None = None) -> dict[str, list[dict]]:
+def get_articles_for_date(since: datetime, db_path: Path | None = None) -> dict[str, list[dict]]:
     """
-    Fetch articles collected today (by collected_at date), grouped by category.
+    Fetch articles published on or after `since` (UTC), grouped by category.
     Returns {"domestic": [...], "international": [...]}.
     """
-    date_str = target_date.strftime("%Y-%m-%d")
+    since_str = since.strftime("%Y-%m-%d %H:%M:%S")
 
     with _get_conn(db_path) as conn:
         rows = conn.execute(
             """
             SELECT title, url, source, category, language, published_at, summary, title_ja, summary_ja
             FROM articles
-            WHERE DATE(collected_at) = ?
+            WHERE published_at >= ?
             ORDER BY category, published_at DESC
             """,
-            (date_str,),
+            (since_str,),
         ).fetchall()
 
     result: dict[str, list[dict]] = {"domestic": [], "international": []}
