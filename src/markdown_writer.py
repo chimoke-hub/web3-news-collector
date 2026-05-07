@@ -9,7 +9,7 @@ import pytz
 logger = logging.getLogger(__name__)
 
 JST = pytz.timezone("Asia/Tokyo")
-DATA_DIR = Path(__file__).parent.parent / "data"
+DOCS_DIR = Path(__file__).parent.parent / "docs"
 
 
 def _format_jst(dt_str: str | None) -> str:
@@ -21,8 +21,7 @@ def _format_jst(dt_str: str | None) -> str:
         dt = dateutil_parser.parse(dt_str)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        dt_jst = dt.astimezone(JST)
-        return dt_jst.strftime("%Y-%m-%d %H:%M JST")
+        return dt.astimezone(JST).strftime("%Y-%m-%d %H:%M JST")
     except Exception:
         return dt_str
 
@@ -58,10 +57,10 @@ def write_markdown(
     output_dir: Path | None = None,
 ) -> Path:
     """
-    Write a daily Markdown file and return its path.
+    Write a daily Markdown file with Jekyll front matter and return its path.
     `target_date` should be the collection date (JST).
     """
-    out_dir = output_dir or DATA_DIR
+    out_dir = output_dir or DOCS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
 
     date_str = target_date.strftime("%Y-%m-%d")
@@ -71,10 +70,17 @@ def write_markdown(
     international = articles_by_category.get("international", [])
 
     lines = [
+        "---",
+        f'title: "WEB3ニュース {date_str}"',
+        "layout: default",
+        "---",
+        "",
         f"# WEB3ニュース {date_str}",
         "",
         f"> 収集日時: {datetime.now(JST).strftime('%Y-%m-%d %H:%M JST')}  ",
         f"> 国内: {len(domestic)}件 / 海外: {len(international)}件",
+        "",
+        "[← レポート一覧に戻る](/web3-news-collector/)",
         "",
         "---",
         "",
@@ -101,4 +107,38 @@ def write_markdown(
 
     filepath.write_text("\n".join(lines), encoding="utf-8")
     logger.info("Markdown written: %s", filepath)
+
+    # Update index page
+    _update_index(out_dir)
+
     return filepath
+
+
+def _update_index(docs_dir: Path) -> None:
+    """Regenerate docs/index.md with links to all daily reports (newest first)."""
+    reports = sorted(
+        [f for f in docs_dir.glob("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].md")],
+        reverse=True,
+    )
+
+    lines = [
+        "---",
+        'title: "WEB3ニュース Daily"',
+        "layout: default",
+        "---",
+        "",
+        "# WEB3ニュース Daily",
+        "",
+        "毎朝9時（JST）に自動収集されるWEB3関連ニュースのアーカイブです。",
+        "",
+        "## レポート一覧",
+        "",
+    ]
+
+    for report in reports:
+        date_str = report.stem
+        lines.append(f"- [{date_str}](/web3-news-collector/{date_str})")
+
+    lines.append("")
+    (docs_dir / "index.md").write_text("\n".join(lines), encoding="utf-8")
+    logger.info("Index updated: %d reports listed", len(reports))

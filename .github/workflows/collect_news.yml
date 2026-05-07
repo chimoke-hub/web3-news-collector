@@ -41,8 +41,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage database and markdown files
-          git add data/news.db data/*.md || true
+          # Stage database and generated pages
+          git add data/news.db docs/ || true
 
           # Only commit if there are staged changes
           if git diff --cached --quiet; then

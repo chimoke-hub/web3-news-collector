@@ -1,0 +1,14 @@
+title: WEB3ニュース Daily
+description: 毎日のWEB3関連ニュース（国内・海外）を自動収集
+lang: ja
+theme: minima
+
+minima:
+  skin: classic
+
+exclude:
+  - data/
+  - src/
+  - main.py
+  - requirements.txt
+  - README.md
