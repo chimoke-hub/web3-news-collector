@@ -37,12 +37,16 @@ def _article_block(article: dict) -> dict:
     category = CATEGORY_LABEL.get(article.get("category", ""), article.get("category", ""))
     published = _format_jst(article.get("published_at"))
     summary = article.get("summary", "")
+    title_ja = article.get("title_ja", "")
+    summary_ja = article.get("summary_ja", "")
 
-    lines = [
-        f"*<{url}|{title}>*",
-        f":office: *ソース*: {source}　|　:label: *カテゴリ*: {category}　|　:calendar: *公開日*: {published}",
-    ]
-    if summary:
+    lines = [f"*<{url}|{title}>*"]
+    if title_ja and title_ja != title:
+        lines.append(f"_{title_ja}_")
+    lines.append(f":office: *ソース*: {source}　|　:label: *カテゴリ*: {category}　|　:calendar: *公開日*: {published}")
+    if summary_ja and summary_ja != summary:
+        lines.append(f":memo: *概要*: {summary_ja[:150]}")
+    elif summary:
         lines.append(f":memo: *概要*: {summary[:150]}")
 
     return {

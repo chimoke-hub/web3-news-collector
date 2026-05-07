@@ -34,6 +34,7 @@ jobs:
         env:
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DEEPL_API_KEY: ${{ secrets.DEEPL_API_KEY }}
         run: python main.py
 
       - name: Commit and push collected data

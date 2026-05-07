@@ -35,12 +35,18 @@ def _render_articles(articles: list[dict]) -> str:
         source = article.get("source", "不明")
         published_at = _format_jst(article.get("published_at"))
         summary = article.get("summary", "")
+        title_ja = article.get("title_ja", "")
+        summary_ja = article.get("summary_ja", "")
 
         lines.append(f"### {i}. [{title}]({url})")
+        if title_ja and title_ja != title:
+            lines.append(f"> {title_ja}")
         lines.append(f"- **メディア**: {source}")
         lines.append(f"- **公開日時**: {published_at}")
         if summary:
-            lines.append(f"- **概要**: {summary}")
+            lines.append(f"- **概要（原文）**: {summary}")
+        if summary_ja and summary_ja != summary:
+            lines.append(f"- **概要（日本語）**: {summary_ja}")
         lines.append("")
 
     return "\n".join(lines)

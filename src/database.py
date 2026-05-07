@@ -19,9 +19,17 @@ CREATE TABLE IF NOT EXISTS articles (
     language     TEXT,
     published_at DATETIME,
     collected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    summary      TEXT
+    summary      TEXT,
+    title_ja     TEXT,
+    summary_ja   TEXT
 );
 """
+
+# Columns added after initial release — migrate existing DBs gracefully
+MIGRATION_SQLS = [
+    "ALTER TABLE articles ADD COLUMN title_ja TEXT",
+    "ALTER TABLE articles ADD COLUMN summary_ja TEXT",
+]
 
 
 def _get_conn(db_path: Path | None = None) -> sqlite3.Connection:
@@ -33,9 +41,15 @@ def _get_conn(db_path: Path | None = None) -> sqlite3.Connection:
 
 
 def init_db(db_path: Path | None = None) -> None:
-    """Create the articles table if it doesn't exist."""
+    """Create the articles table if it doesn't exist, and run migrations."""
     with _get_conn(db_path) as conn:
         conn.execute(CREATE_TABLE_SQL)
+        # Add new columns to existing DBs (ignore error if already present)
+        for sql in MIGRATION_SQLS:
+            try:
+                conn.execute(sql)
+            except sqlite3.OperationalError:
+                pass
         conn.commit()
     logger.info("Database initialized at %s", db_path or DB_PATH)
 
@@ -57,8 +71,8 @@ def save_articles(articles: list[dict], db_path: Path | None = None) -> tuple[in
             try:
                 conn.execute(
                     """
-                    INSERT INTO articles (title, url, source, category, language, published_at, summary)
-                    VALUES (:title, :url, :source, :category, :language, :published_at, :summary)
+                    INSERT INTO articles (title, url, source, category, language, published_at, summary, title_ja, summary_ja)
+                    VALUES (:title, :url, :source, :category, :language, :published_at, :summary, :title_ja, :summary_ja)
                     """,
                     {
                         "title": article.get("title", ""),
@@ -68,6 +82,8 @@ def save_articles(articles: list[dict], db_path: Path | None = None) -> tuple[in
                         "language": article.get("language", ""),
                         "published_at": published_at,
                         "summary": article.get("summary", ""),
+                        "title_ja": article.get("title_ja", ""),
+                        "summary_ja": article.get("summary_ja", ""),
                     },
                 )
                 inserted += 1
@@ -91,7 +107,7 @@ def get_articles_for_date(target_date: datetime, db_path: Path | None = None) ->
     with _get_conn(db_path) as conn:
         rows = conn.execute(
             """
-            SELECT title, url, source, category, language, published_at, summary
+            SELECT title, url, source, category, language, published_at, summary, title_ja, summary_ja
             FROM articles
             WHERE DATE(collected_at) = ?
             ORDER BY category, published_at DESC
