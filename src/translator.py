@@ -1,43 +1,38 @@
-"""DeepL translation module for international WEB3 news articles."""
+"""Google Translate module for international WEB3 news articles (via deep-translator)."""
 
 import logging
-import os
+import time
 
 logger = logging.getLogger(__name__)
 
+BATCH_SIZE = 10      # 1回のリクエストで翻訳する件数
+REQUEST_DELAY = 1.0  # リクエスト間のウェイト（秒）
 
-def translate_articles(articles: list[dict], api_key: str | None = None) -> list[dict]:
+
+def translate_articles(articles: list[dict]) -> list[dict]:
     """
     Translate title and summary of international (English) articles into Japanese.
     Adds `title_ja` and `summary_ja` keys to each article dict in-place.
     Returns the same list.
     """
-    key = api_key or os.environ.get("DEEPL_API_KEY", "")
-    if not key:
-        logger.warning("DEEPL_API_KEY not set, skipping translation")
-        for article in articles:
-            article.setdefault("title_ja", "")
-            article.setdefault("summary_ja", "")
-        return articles
-
     try:
-        import deepl
+        from deep_translator import GoogleTranslator
     except ImportError:
-        logger.error("deepl package not installed")
+        logger.error("deep-translator package not installed")
         for article in articles:
             article.setdefault("title_ja", "")
             article.setdefault("summary_ja", "")
         return articles
 
-    translator = deepl.Translator(key)
+    translator = GoogleTranslator(source="en", target="ja")
 
-    # Separate texts to translate: titles and summaries
     titles = [a.get("title", "") or "" for a in articles]
     summaries = [a.get("summary", "") or "" for a in articles]
 
-    # Batch translate titles
+    logger.info("Translating %d titles...", len(titles))
     title_translations = _batch_translate(translator, titles)
-    # Batch translate summaries (skip empty ones)
+
+    logger.info("Translating %d summaries...", len(summaries))
     summary_translations = _batch_translate(translator, summaries)
 
     for i, article in enumerate(articles):
@@ -49,29 +44,22 @@ def translate_articles(articles: list[dict], api_key: str | None = None) -> list
 
 
 def _batch_translate(translator, texts: list[str]) -> list[str]:
-    """Translate a list of texts, returning empty string for empties. Handles quota errors."""
+    """テキストリストをバッチ翻訳する。空文字・エラーは元テキストを返す。"""
     results = [""] * len(texts)
 
-    # Build index map for non-empty texts
-    non_empty = [(i, t) for i, t in enumerate(texts) if t.strip()]
-    if not non_empty:
-        return results
+    for i, text in enumerate(texts):
+        if not text.strip():
+            continue
+        # Google翻訳は1テキスト5000文字上限
+        text_truncated = text[:4500]
+        try:
+            results[i] = translator.translate(text_truncated) or text
+        except Exception as e:
+            logger.warning("Translation failed for index %d: %s", i, e)
+            results[i] = text  # 失敗時は元テキストを使用
 
-    indices, to_translate = zip(*non_empty)
-
-    try:
-        import deepl
-        translated = translator.translate_text(
-            list(to_translate),
-            source_lang="EN",
-            target_lang="JA",
-        )
-        for idx, result in zip(indices, translated):
-            results[idx] = result.text
-    except Exception as e:
-        logger.error("DeepL translation failed: %s", e)
-        # Fall back to original text on error
-        for idx, original in zip(indices, to_translate):
-            results[idx] = original
+        # バッチサイズごとにウェイトを入れてレート制限を回避
+        if (i + 1) % BATCH_SIZE == 0:
+            time.sleep(REQUEST_DELAY)
 
     return results
