@@ -5,10 +5,9 @@ import time
 
 logger = logging.getLogger(__name__)
 
-CHUNK_SIZE = 50       # 1回のtranslate_batchで送る件数
-CHUNK_DELAY = 3.0     # チャンク間のウェイト（秒）
-RETRY_LIMIT = 3       # リトライ回数
-RETRY_DELAY = 10.0    # リトライ前のウェイト（秒）
+REQUEST_INTERVAL = 0.5   # リクエスト間隔（秒）
+RETRY_LIMIT = 3          # 失敗時のリトライ回数
+RETRY_WAIT = 15.0        # リトライ前のウェイト（秒）
 
 
 def translate_articles(articles: list[dict]) -> list[dict]:
@@ -26,67 +25,45 @@ def translate_articles(articles: list[dict]) -> list[dict]:
             article.setdefault("summary_ja", "")
         return articles
 
-    titles = [a.get("title", "") or "" for a in articles]
-    summaries = [a.get("summary", "") or "" for a in articles]
-
-    logger.info("Translating %d titles in batches...", len(titles))
-    title_translations = _batch_translate(titles)
-
-    logger.info("Translating %d summaries in batches...", len(summaries))
-    summary_translations = _batch_translate(summaries)
+    total = len(articles)
+    logger.info("Translating %d international articles (titles + summaries)...", total)
 
     for i, article in enumerate(articles):
-        article["title_ja"] = title_translations[i]
-        article["summary_ja"] = summary_translations[i]
+        title = article.get("title", "") or ""
+        summary = article.get("summary", "") or ""
 
-    logger.info("Translation complete: %d articles", len(articles))
+        article["title_ja"] = _translate_one(title, i * 2, total * 2) if title.strip() else ""
+        article["summary_ja"] = _translate_one(summary, i * 2 + 1, total * 2) if summary.strip() else ""
+
+        if (i + 1) % 50 == 0:
+            logger.info("Progress: %d/%d articles translated", i + 1, total)
+
+    logger.info("Translation complete: %d articles", total)
     return articles
 
 
-def _batch_translate(texts: list[str]) -> list[str]:
+def _translate_one(text: str, request_index: int, total_requests: int) -> str:
     """
-    テキストリストをCHUNK_SIZEごとにまとめて翻訳する。
-    失敗した場合はリトライし、それでも失敗したら空文字を返す。
+    1テキストを翻訳して返す。失敗時はリトライし、それでも失敗したら空文字を返す。
+    リクエスト間にREQUEST_INTERVALの待機を入れてレート制限を回避する。
     """
-    results = [""] * len(texts)
-
-    # 空テキストを除いたインデックスマップを作成
-    non_empty = [(i, t[:4500]) for i, t in enumerate(texts) if t.strip()]
-    if not non_empty:
-        return results
-
-    # CHUNK_SIZEごとに分割して翻訳
-    for chunk_start in range(0, len(non_empty), CHUNK_SIZE):
-        chunk = non_empty[chunk_start: chunk_start + CHUNK_SIZE]
-        indices = [c[0] for c in chunk]
-        chunk_texts = [c[1] for c in chunk]
-
-        translated = _translate_chunk_with_retry(chunk_texts)
-
-        for idx, text in zip(indices, translated):
-            results[idx] = text
-
-        # チャンク間のウェイト（最後のチャンクは不要）
-        if chunk_start + CHUNK_SIZE < len(non_empty):
-            logger.debug("Waiting %.1fs before next chunk...", CHUNK_DELAY)
-            time.sleep(CHUNK_DELAY)
-
-    return results
-
-
-def _translate_chunk_with_retry(texts: list[str]) -> list[str]:
-    """1チャンクをリトライ付きで翻訳する。失敗時は空文字を返す。"""
     from deep_translator import GoogleTranslator
+
+    text_truncated = text[:4500]
 
     for attempt in range(1, RETRY_LIMIT + 1):
         try:
-            translated = GoogleTranslator(source="en", target="ja").translate_batch(texts)
-            # translate_batch はNoneを返すことがある
-            return [t or "" for t in translated]
+            result = GoogleTranslator(source="en", target="ja").translate(text_truncated)
+            time.sleep(REQUEST_INTERVAL)
+            return result or ""
         except Exception as e:
-            logger.warning("Chunk translation failed (attempt %d/%d): %s", attempt, RETRY_LIMIT, e)
+            logger.warning(
+                "Translation failed [%d/%d] attempt %d/%d: %s",
+                request_index + 1, total_requests, attempt, RETRY_LIMIT, e,
+            )
             if attempt < RETRY_LIMIT:
-                time.sleep(RETRY_DELAY * attempt)  # 指数バックオフ
+                time.sleep(RETRY_WAIT * attempt)  # 指数バックオフ: 15s, 30s
+            else:
+                time.sleep(REQUEST_INTERVAL)
 
-    logger.error("All retries failed for chunk of %d texts", len(texts))
-    return [""] * len(texts)
+    return ""
