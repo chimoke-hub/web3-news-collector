@@ -9,4 +9,5 @@ layout: default
 
 ## レポート一覧
 
-*レポートは毎朝自動生成されます。*
+- [2026-05-08](/web3-news-collector/2026-05-08)
+- [2026-05-07](/web3-news-collector/2026-05-07)
