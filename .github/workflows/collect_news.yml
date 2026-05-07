@@ -1,0 +1,54 @@
+name: WEB3 News Collector
+
+on:
+  schedule:
+    # Every day at 00:00 UTC = 09:00 JST
+    - cron: "0 0 * * *"
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+permissions:
+  contents: write # Required to commit and push collected data
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history so git push works correctly
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run news collector
+        env:
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python main.py
+
+      - name: Commit and push collected data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage database and markdown files
+          git add data/news.db data/*.md || true
+
+          # Only commit if there are staged changes
+          if git diff --cached --quiet; then
+            echo "No new data to commit."
+          else
+            DATE=$(date -u +"%Y-%m-%d")
+            git commit -m "chore: collect WEB3 news ${DATE}"
+            git push
+          fi
