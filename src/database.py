@@ -108,6 +108,19 @@ def save_articles(articles: list[dict], db_path: Path | None = None) -> tuple[in
     return inserted, skipped
 
 
+def get_translated_urls(urls: list[str], db_path: Path | None = None) -> set[str]:
+    """Return the subset of URLs that already have a title_ja translation in the DB."""
+    if not urls:
+        return set()
+    placeholders = ",".join("?" * len(urls))
+    with _get_conn(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT url FROM articles WHERE url IN ({placeholders}) AND title_ja IS NOT NULL AND title_ja != ''",
+            urls,
+        ).fetchall()
+    return {row["url"] for row in rows}
+
+
 def get_articles_for_date(since: datetime, db_path: Path | None = None) -> dict[str, list[dict]]:
     """
     Fetch articles published on or after `since` (UTC), grouped by category.
