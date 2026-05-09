@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytz
 
-from src.database import get_articles_for_date, init_db, save_articles
+from src.database import get_articles_for_date, get_translated_urls, init_db, save_articles
 from src.markdown_writer import write_markdown
 from src.newsapi_collector import collect_newsapi
 from src.rss_collector import collect_rss
@@ -42,12 +42,18 @@ def main() -> None:
     all_articles = rss_articles + newsapi_articles
     logger.info("Total collected: %d articles", len(all_articles))
 
-    # Translate international articles to Japanese
+    # Translate international articles to Japanese — skip those already in DB with a translation
     international = [a for a in all_articles if a.get("category") == "international"]
     domestic = [a for a in all_articles if a.get("category") != "international"]
     if international:
-        logger.info("Translating %d international articles via DeepL...", len(international))
-        translate_articles(international)
+        already_translated = get_translated_urls([a["url"] for a in international])
+        to_translate = [a for a in international if a["url"] not in already_translated]
+        logger.info(
+            "Translation: %d new articles to translate, %d already in DB (skipped)",
+            len(to_translate), len(already_translated),
+        )
+        if to_translate:
+            translate_articles(to_translate)
     all_articles = domestic + international
 
     # Save to DB (deduplication handled by UNIQUE constraint on URL)

@@ -50,5 +50,5 @@ jobs:
           else
             DATE=$(date -u +"%Y-%m-%d")
             git commit -m "chore: collect WEB3 news ${DATE}"
-            git push
+            git push origin HEAD
           fi
