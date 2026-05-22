@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ポケットモンスタ - スマホで遊べるモンスター育成RPG</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #000;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+    color: #fff;
+    touch-action: manipulation;
+  }
+  #app {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1e 100%);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* ===== Screens ===== */
+  .screen { flex: 1; display: none; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ===== Title ===== */
+  #title {
+    align-items: center; justify-content: center; gap: 24px;
+    background: radial-gradient(ellipse at center, #2d3561 0%, #0f0f1e 80%);
+  }
+  .logo {
+    font-size: 44px; font-weight: 900; text-align: center;
+    background: linear-gradient(135deg, #ffd84d 0%, #ff5b5b 50%, #4dd2ff 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 24px rgba(255, 200, 0, 0.3);
+    animation: pulse 2s ease-in-out infinite;
+    line-height: 1.1;
+  }
+  .logo-sub { font-size: 14px; opacity: 0.7; letter-spacing: 2px; }
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+  .big-mon {
+    font-size: 120px;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5));
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+
+  .btn {
+    background: linear-gradient(180deg, #ff5b5b 0%, #c53030 100%);
+    color: #fff; border: 3px solid #fff;
+    border-radius: 14px;
+    padding: 14px 28px;
+    font-size: 18px; font-weight: 700;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.3), 0 6px 12px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: transform 0.05s, box-shadow 0.05s;
+    min-width: 200px;
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.3), 0 3px 6px rgba(0,0,0,0.3); }
+  .btn.secondary { background: linear-gradient(180deg, #4a5fc1 0%, #2c3a8a 100%); }
+  .btn.success { background: linear-gradient(180deg, #4caf50 0%, #2e7d32 100%); }
+  .btn.warning { background: linear-gradient(180deg, #ff9800 0%, #c66900 100%); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ===== Starter Select ===== */
+  #starter {
+    align-items: center; justify-content: center; gap: 18px; padding: 16px;
+  }
+  #starter h2 { font-size: 20px; text-align: center; margin-bottom: 8px; }
+  .starter-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+    width: 100%; max-width: 460px;
+  }
+  .starter-card {
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 14px;
+    padding: 12px 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .starter-card:active { transform: scale(0.96); }
+  .starter-card.selected {
+    border-color: #ffd84d; background: rgba(255, 216, 77, 0.15);
+    box-shadow: 0 0 16px rgba(255, 216, 77, 0.4);
+  }
+  .starter-card .emoji { font-size: 56px; line-height: 1.1; }
+  .starter-card .name { font-size: 14px; font-weight: 700; margin-top: 4px; }
+  .starter-card .type { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+
+  /* ===== Overworld ===== */
+  #world { padding: 8px; gap: 8px; }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(0,0,0,0.4);
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .topbar .info { display: flex; gap: 12px; align-items: center; }
+  .topbar .info .mon-icon { font-size: 22px; }
+  .topbar button {
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+    color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px;
+    cursor: pointer;
+  }
+  .topbar button:active { background: rgba(255,255,255,0.3); }
+
+  #map-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    background: #1a3a1a;
+    border: 3px solid #2d5a2d;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    min-height: 0;
+  }
+  #map {
+    display: grid;
+    gap: 0;
+    image-rendering: pixelated;
+  }
+  .tile {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 60%;
+    position: relative;
+  }
+  .tile.grass { background: #4a8a3a; }
+  .tile.tallgrass { background: #2d6a2d; }
+  .tile.tallgrass::before { content: "草"; opacity: 0.4; font-size: 80%; }
+  .tile.path { background: #c9a87c; }
+  .tile.water { background: #3a7ac9; }
+  .tile.tree { background: #4a8a3a; }
+  .tile.tree::before { content: "🌳"; font-size: 100%; }
+  .tile.rock { background: #4a8a3a; }
+  .tile.rock::before { content: "🪨"; font-size: 80%; }
+  .tile.flower { background: #4a8a3a; }
+  .tile.flower::before { content: "🌸"; font-size: 80%; }
+  .tile.heal { background: #ff9999; }
+  .tile.heal::before { content: "❤️"; font-size: 80%; }
+  .tile.player::after {
+    content: "🧒";
+    position: absolute;
+    font-size: 110%;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7));
+    z-index: 2;
+  }
+
+  /* ===== Controls ===== */
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 4px 0 8px;
+    align-items: center;
+  }
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 56px);
+    grid-template-rows: repeat(3, 56px);
+    gap: 4px;
+    justify-self: center;
+  }
+  .dbtn {
+    background: linear-gradient(180deg, #555 0%, #333 100%);
+    border: 2px solid #777;
+    color: #fff;
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 3px 0 #222;
+  }
+  .dbtn:active { transform: translateY(2px); box-shadow: 0 1px 0 #222; }
+  .dbtn.empty { visibility: hidden; }
+  .dbtn[data-dir="up"]    { grid-column: 2; grid-row: 1; }
+  .dbtn[data-dir="left"]  { grid-column: 1; grid-row: 2; }
+  .dbtn[data-dir="right"] { grid-column: 3; grid-row: 2; }
+  .dbtn[data-dir="down"]  { grid-column: 2; grid-row: 3; }
+  .action-buttons {
+    display: flex; flex-direction: column; gap: 8px;
+    align-items: stretch; justify-self: center; width: 130px;
+  }
+  .action-buttons .btn {
+    min-width: 0; padding: 10px 12px; font-size: 14px;
+  }
+
+  /* ===== Battle ===== */
+  #battle {
+    background: linear-gradient(180deg, #5a3a8a 0%, #2a1a4a 100%);
+    padding: 10px;
+    gap: 8px;
+  }
+  .battle-arena {
+    flex: 1;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+    min-height: 0;
+  }
+  .battle-side {
+    display: flex; align-items: flex-end; justify-content: center;
+    position: relative;
+  }
+  .battle-side.enemy { align-items: flex-start; padding-top: 10px; }
+  .mon-display {
+    font-size: clamp(80px, 22vw, 140px);
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5));
+    transition: transform 0.3s;
+  }
+  .mon-display.attacking { animation: attack 0.4s; }
+  .mon-display.hurt { animation: hurt 0.4s; }
+  .mon-display.faint { animation: faint 0.8s forwards; }
+  .mon-display.catching { animation: catching 0.6s forwards; }
+  @keyframes attack { 0% { transform: translateX(0); } 50% { transform: translateX(20px) scale(1.1); } 100% { transform: translateX(0); } }
+  @keyframes hurt { 0%, 100% { transform: translateX(0); filter: brightness(1) drop-shadow(0 8px 16px rgba(0,0,0,0.5)); }
+                    25% { transform: translateX(-12px); filter: brightness(2) drop-shadow(0 8px 16px rgba(0,0,0,0.5)); }
+                    75% { transform: translateX(12px); filter: brightness(2) drop-shadow(0 8px 16px rgba(0,0,0,0.5)); } }
+  @keyframes faint { to { transform: translateY(80px) rotate(20deg); opacity: 0; } }
+  @keyframes catching { to { transform: scale(0.1) rotate(360deg); opacity: 0.3; } }
+
+  .battle-side.enemy .mon-display { transform: scaleX(1); }
+  .battle-side.player .mon-display { transform: scaleX(-1); }
+  .battle-side.player .mon-display.attacking { animation: attack-player 0.4s; }
+  @keyframes attack-player { 0% { transform: scaleX(-1) translateX(0); } 50% { transform: scaleX(-1) translateX(20px) scale(1.1); } 100% { transform: scaleX(-1) translateX(0); } }
+
+  .status-card {
+    position: absolute; top: 4px;
+    background: rgba(255,255,255,0.95); color: #222;
+    border: 2px solid #444;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 12px;
+    min-width: 140px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  }
+  .battle-side.enemy .status-card { left: 8px; top: 8px; }
+  .battle-side.player .status-card { right: 8px; bottom: 8px; top: auto; }
+  .status-card .row1 { display: flex; justify-content: space-between; font-weight: 700; }
+  .status-card .hpbar {
+    height: 8px; background: #ddd; border-radius: 4px;
+    overflow: hidden; margin-top: 4px; border: 1px solid #444;
+  }
+  .status-card .hpbar > div {
+    height: 100%; background: linear-gradient(90deg, #2ecc71, #27ae60);
+    transition: width 0.6s ease, background 0.3s;
+  }
+  .status-card .hpbar > div.mid { background: linear-gradient(90deg, #f1c40f, #f39c12); }
+  .status-card .hpbar > div.low { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+  .status-card .hp-text { font-size: 11px; text-align: right; margin-top: 2px; }
+  .status-card .exp-bar {
+    height: 4px; background: #ddd; border-radius: 2px;
+    overflow: hidden; margin-top: 3px;
+  }
+  .status-card .exp-bar > div {
+    height: 100%; background: linear-gradient(90deg, #3498db, #2980b9);
+    transition: width 0.5s;
+  }
+
+  .battle-ui {
+    background: rgba(0,0,0,0.7);
+    border: 3px solid #fff;
+    border-radius: 12px;
+    padding: 10px;
+    min-height: 130px;
+    display: flex; flex-direction: column;
+    gap: 8px;
+  }
+  .battle-msg {
+    font-size: 15px; line-height: 1.4; min-height: 42px;
+  }
+  .battle-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .battle-actions .btn {
+    min-width: 0; padding: 10px 6px; font-size: 14px; border-width: 2px;
+  }
+  .move-list {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .move-btn {
+    background: #fff; color: #222;
+    border: 2px solid #444;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    line-height: 1.2;
+  }
+  .move-btn:active { background: #eee; }
+  .move-btn .move-name { font-weight: 700; }
+  .move-btn .move-info { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+  .type-badge {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; color: #fff; vertical-align: middle;
+  }
+  .t-fire { background: #e25822; }
+  .t-water { background: #2a78c7; }
+  .t-grass { background: #4caf50; }
+  .t-normal { background: #888; }
+  .t-electric { background: #d4a000; color: #222; }
+  .t-rock { background: #8d6e3c; }
+
+  /* ===== Modal / Menu ===== */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; padding: 16px;
+  }
+  .overlay.active { display: flex; }
+  .modal {
+    background: #2a2a4a;
+    border: 3px solid #fff;
+    border-radius: 14px;
+    padding: 16px;
+    width: 100%; max-width: 380px;
+    max-height: 88vh;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .modal h3 { font-size: 18px; text-align: center; margin-bottom: 4px; }
+  .team-list { display: flex; flex-direction: column; gap: 8px; }
+  .team-item {
+    background: rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+  }
+  .team-item:active { background: rgba(255,255,255,0.2); }
+  .team-item.fainted { opacity: 0.5; }
+  .team-item.active { border-color: #ffd84d; background: rgba(255, 216, 77, 0.15); }
+  .team-item .emoji { font-size: 36px; }
+  .team-item .info { flex: 1; font-size: 13px; }
+  .team-item .info .name { font-weight: 700; font-size: 15px; }
+  .team-item .mini-hp {
+    height: 6px; background: #555; border-radius: 3px; overflow: hidden; margin-top: 4px;
+  }
+  .team-item .mini-hp > div { height: 100%; background: #2ecc71; }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    border: 2px solid #ffd84d;
+    color: #fff; padding: 10px 18px; border-radius: 10px;
+    font-size: 14px; z-index: 200;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(8px); }
+
+  /* ===== Pokeball animation ===== */
+  .pokeball {
+    position: absolute;
+    font-size: 50px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .pokeball.throw { animation: throw 0.8s forwards; }
+  @keyframes throw {
+    0% { left: 20%; top: 70%; transform: rotate(0); }
+    100% { left: 50%; top: 30%; transform: rotate(720deg); }
+  }
+  .pokeball.shake { animation: shake 1.5s; }
+  @keyframes shake {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(-25deg); }
+    40% { transform: rotate(25deg); }
+    60% { transform: rotate(-25deg); }
+    80% { transform: rotate(25deg); }
+  }
+
+  /* ===== Small phones ===== */
+  @media (max-height: 640px) {
+    .logo { font-size: 36px; }
+    .big-mon { font-size: 90px; }
+    .dpad { grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px); }
+    .action-buttons { width: 110px; }
+  }
+  @media (min-width: 600px) {
+    #app { max-width: 480px; margin: 0 auto; border-left: 1px solid #333; border-right: 1px solid #333; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Title Screen -->
+  <section id="title" class="screen active">
+    <div class="big-mon">🦊</div>
+    <div>
+      <div class="logo">ポケット<br>モンスタ</div>
+      <div class="logo-sub" style="text-align:center; margin-top:8px;">~ ちいさな ぼうけん ~</div>
+    </div>
+    <button class="btn" id="btn-new">はじめから</button>
+    <button class="btn secondary" id="btn-continue">つづきから</button>
+    <div style="font-size:11px; opacity:0.5; margin-top:12px;">スマホで遊べる モンスター育成RPG</div>
+  </section>
+
+  <!-- Starter Selection -->
+  <section id="starter" class="screen">
+    <h2>🌱 はじめの モンスターを えらぼう</h2>
+    <div class="starter-grid" id="starter-grid"></div>
+    <div id="starter-desc" style="font-size:13px; text-align:center; min-height:60px; padding:8px 12px; background:rgba(0,0,0,0.3); border-radius:10px; max-width:460px; width:100%;">
+      モンスターを タップして えらんでね
+    </div>
+    <button class="btn success" id="btn-confirm-starter" disabled>このこに きめる！</button>
+  </section>
+
+  <!-- Overworld -->
+  <section id="world" class="screen">
+    <div class="topbar">
+      <div class="info">
+        <span class="mon-icon" id="lead-icon">🦊</span>
+        <div>
+          <div id="lead-name" style="font-weight:700;">ピカリ</div>
+          <div style="font-size:11px; opacity:0.7;">
+            Lv.<span id="lead-lv">5</span> HP:<span id="lead-hp">20/20</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button id="btn-team">👥</button>
+        <button id="btn-menu">≡</button>
+      </div>
+    </div>
+
+    <div id="map-wrap">
+      <div id="map"></div>
+    </div>
+
+    <div class="controls">
+      <div class="dpad">
+        <button class="dbtn" data-dir="up">▲</button>
+        <button class="dbtn" data-dir="left">◀</button>
+        <button class="dbtn" data-dir="right">▶</button>
+        <button class="dbtn" data-dir="down">▼</button>
+      </div>
+      <div class="action-buttons">
+        <button class="btn warning" id="btn-search">そうさく 🔍</button>
+        <button class="btn success" id="btn-heal">かいふく ❤️</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Battle -->
+  <section id="battle" class="screen">
+    <div class="battle-arena">
+      <div class="battle-side enemy">
+        <div class="status-card" id="enemy-status">
+          <div class="row1"><span id="enemy-name">？？？</span><span>Lv.<span id="enemy-lv">5</span></span></div>
+          <div class="hpbar"><div id="enemy-hp-fill" style="width:100%;"></div></div>
+        </div>
+        <div class="mon-display" id="enemy-display">❓</div>
+      </div>
+      <div class="battle-side player">
+        <div class="mon-display" id="player-display">🦊</div>
+        <div class="status-card" id="player-status">
+          <div class="row1"><span id="p-name">ピカリ</span><span>Lv.<span id="p-lv">5</span></span></div>
+          <div class="hpbar"><div id="p-hp-fill" style="width:100%;"></div></div>
+          <div class="hp-text"><span id="p-hp-text">20/20</span></div>
+          <div class="exp-bar"><div id="p-exp-fill" style="width:0%;"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="battle-ui">
+      <div class="battle-msg" id="battle-msg">やせいの モンスターが あらわれた！</div>
+      <div id="battle-action-panel"></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Overlays -->
+<div class="overlay" id="overlay-team">
+  <div class="modal">
+    <h3>👥 なかま たち</h3>
+    <div class="team-list" id="team-list"></div>
+    <button class="btn secondary" onclick="closeOverlay('overlay-team')">とじる</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-menu">
+  <div class="modal">
+    <h3>≡ メニュー</h3>
+    <div style="font-size:13px; line-height:1.7; background:rgba(0,0,0,0.3); padding:10px; border-radius:8px;">
+      <div>📊 もっている モンスター: <span id="m-count">1</span>ひき</div>
+      <div>👣 あるいた ほすう: <span id="m-steps">0</span>ぽ</div>
+      <div>⚔️ かった かいすう: <span id="m-wins">0</span>かい</div>
+      <div>⚾ つかった ボール: <span id="m-balls">0</span>こ</div>
+    </div>
+    <button class="btn success" onclick="saveGame(); toast('💾 セーブ しました'); closeOverlay('overlay-menu');">💾 セーブする</button>
+    <button class="btn warning" onclick="if(confirm('タイトルに もどりますか？（セーブ されます）')){ saveGame(); closeOverlay('overlay-menu'); showScreen('title'); }">🏠 タイトルへ</button>
+    <button class="btn" style="background:linear-gradient(180deg,#888,#555);" onclick="if(confirm('セーブを けして はじめから やり直しますか？')){ localStorage.removeItem('pmon_save'); location.reload(); }">🗑️ データ さくじょ</button>
+    <button class="btn secondary" onclick="closeOverlay('overlay-menu')">とじる</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-switch">
+  <div class="modal">
+    <h3>🔄 だす モンスターを えらぶ</h3>
+    <div class="team-list" id="switch-list"></div>
+    <button class="btn secondary" id="switch-cancel" onclick="closeOverlay('overlay-switch')">キャンセル</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ============ MONSTER SPECIES ============
+const SPECIES = {
+  pikari:  { name: "ピカリ",   emoji: "🦊", type: "electric", base: { hp: 22, atk: 12, def: 8, spd: 14 }, evo: { to: "raiwolf", lv: 12 } },
+  raiwolf: { name: "ライウルフ", emoji: "🐺", type: "electric", base: { hp: 38, atk: 22, def: 16, spd: 22 } },
+  flamy:   { name: "フレミィ",  emoji: "🐲", type: "fire",     base: { hp: 20, atk: 14, def: 8, spd: 10 }, evo: { to: "drago", lv: 12 } },
+  drago:   { name: "ドラゴ",    emoji: "🐉", type: "fire",     base: { hp: 36, atk: 24, def: 16, spd: 16 } },
+  aquan:   { name: "アクアン",  emoji: "🐢", type: "water",    base: { hp: 26, atk: 10, def: 14, spd: 8 },  evo: { to: "leviath", lv: 12 } },
+  leviath: { name: "レビアス",  emoji: "🐉", type: "water",    base: { hp: 42, atk: 18, def: 22, spd: 12 } },
+  greenly: { name: "グリーニィ", emoji: "🦎", type: "grass",    base: { hp: 24, atk: 11, def: 10, spd: 12 }, evo: { to: "treant", lv: 12 } },
+  treant:  { name: "トレント",  emoji: "🌳", type: "grass",    base: { hp: 40, atk: 20, def: 20, spd: 14 } },
+  catto:   { name: "ニャット",  emoji: "🐱", type: "normal",   base: { hp: 22, atk: 10, def: 10, spd: 16 } },
+  doggo:   { name: "ワンコ",    emoji: "🐶", type: "normal",   base: { hp: 26, atk: 12, def: 12, spd: 12 } },
+  birdy:   { name: "ピヨ",      emoji: "🐦", type: "normal",   base: { hp: 18, atk: 8, def: 7, spd: 18 } },
+  bunny:   { name: "ピョン",    emoji: "🐰", type: "normal",   base: { hp: 20, atk: 9, def: 9, spd: 15 } },
+  bee:     { name: "ブンブン",  emoji: "🐝", type: "grass",    base: { hp: 16, atk: 13, def: 6, spd: 17 } },
+  bug:     { name: "ムシムシ",  emoji: "🐛", type: "grass",    base: { hp: 18, atk: 8, def: 10, spd: 8 } },
+  fishy:   { name: "サカナン",  emoji: "🐟", type: "water",    base: { hp: 18, atk: 10, def: 8, spd: 13 } },
+  snaky:   { name: "ヘビィ",    emoji: "🐍", type: "grass",    base: { hp: 24, atk: 14, def: 10, spd: 11 } },
+  rocky:   { name: "ロッキ",    emoji: "🪨", type: "rock",     base: { hp: 30, atk: 14, def: 22, spd: 4 } },
+  ghosty:  { name: "ゴースン",  emoji: "👻", type: "normal",   base: { hp: 22, atk: 16, def: 10, spd: 14 } },
+};
+
+// ============ MOVES ============
+const MOVES = {
+  tackle:    { name: "たいあたり",   type: "normal",   power: 8,  acc: 0.95 },
+  scratch:   { name: "ひっかく",     type: "normal",   power: 9,  acc: 0.95 },
+  bite:      { name: "かみつく",     type: "normal",   power: 12, acc: 0.9 },
+  ember:     { name: "ひのこ",       type: "fire",     power: 12, acc: 0.95 },
+  flame:     { name: "かえん",       type: "fire",     power: 18, acc: 0.85 },
+  bubble:    { name: "あわ",         type: "water",    power: 10, acc: 0.95 },
+  splash:    { name: "みずでっぽう", type: "water",    power: 16, acc: 0.9 },
+  vine:      { name: "つるムチ",     type: "grass",    power: 12, acc: 0.95 },
+  leaf:      { name: "はっぱカッター", type: "grass",  power: 18, acc: 0.85 },
+  spark:     { name: "でんき ショック", type: "electric", power: 12, acc: 0.95 },
+  thunder:   { name: "かみなり",     type: "electric", power: 22, acc: 0.7 },
+  rocks:     { name: "いわなだれ",   type: "rock",     power: 16, acc: 0.8 },
+  peck:      { name: "つつく",       type: "normal",   power: 10, acc: 0.95 },
+};
+
+const LEARNSETS = {
+  pikari:  [["spark", 1], ["tackle", 1], ["bite", 6], ["thunder", 14]],
+  raiwolf: [["spark", 1], ["bite", 1], ["thunder", 14]],
+  flamy:   [["ember", 1], ["tackle", 1], ["bite", 7], ["flame", 14]],
+  drago:   [["ember", 1], ["bite", 1], ["flame", 14]],
+  aquan:   [["bubble", 1], ["tackle", 1], ["bite", 7], ["splash", 14]],
+  leviath: [["bubble", 1], ["bite", 1], ["splash", 14]],
+  greenly: [["vine", 1], ["tackle", 1], ["scratch", 6], ["leaf", 14]],
+  treant:  [["vine", 1], ["tackle", 1], ["leaf", 14]],
+  catto:   [["scratch", 1], ["bite", 5]],
+  doggo:   [["tackle", 1], ["bite", 6]],
+  birdy:   [["peck", 1], ["tackle", 3]],
+  bunny:   [["tackle", 1], ["scratch", 4]],
+  bee:     [["tackle", 1], ["peck", 4]],
+  bug:     [["tackle", 1], ["scratch", 5]],
+  fishy:   [["splash", 1], ["bubble", 3]],
+  snaky:   [["bite", 1], ["vine", 5]],
+  rocky:   [["tackle", 1], ["rocks", 6]],
+  ghosty:  [["scratch", 1], ["bite", 5]],
+};
+
+// type chart: attacker -> defender -> multiplier
+const TYPE_CHART = {
+  fire:     { grass: 2,    water: 0.5, fire: 0.5, rock: 0.5 },
+  water:    { fire: 2,     grass: 0.5, water: 0.5, rock: 2 },
+  grass:    { water: 2,    fire: 0.5, grass: 0.5, rock: 2 },
+  electric: { water: 2,    grass: 0.5, electric: 0.5, rock: 0.5 },
+  rock:     { fire: 2,     electric: 2 },
+  normal:   { rock: 0.5 },
+};
+
+function typeMult(atkType, defType) {
+  return (TYPE_CHART[atkType] && TYPE_CHART[atkType][defType]) ?? 1;
+}
+
+// ============ GAME STATE ============
+let state = null;
+
+function newGame() {
+  return {
+    started: false,
+    team: [],
+    activeIdx: 0,
+    balls: 5,
+    steps: 0,
+    wins: 0,
+    ballsUsed: 0,
+    px: 5, py: 6,
+    mapW: 11, mapH: 9,
+    map: [],
+  };
+}
+
+function genMap() {
+  // simple map: grass + tallgrass patches + trees border + heal pad + path
+  const w = state.mapW, h = state.mapH;
+  const map = [];
+  for (let y = 0; y < h; y++) {
+    const row = [];
+    for (let x = 0; x < w; x++) {
+      // borders = trees
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) row.push("tree");
+      else row.push("grass");
+    }
+    map.push(row);
+  }
+  // tall grass patch (encounters)
+  for (let y = 2; y <= 4; y++)
+    for (let x = 2; x <= 5; x++) map[y][x] = "tallgrass";
+  for (let y = 5; y <= 7; y++)
+    for (let x = 7; x <= 9; x++) map[y][x] = "tallgrass";
+  // some flowers/rocks decor
+  map[1][3] = "flower";
+  map[7][2] = "rock";
+  map[1][8] = "flower";
+  map[3][7] = "rock";
+  // heal pad (home)
+  map[7][5] = "heal";
+  // path
+  map[5][5] = "path"; map[6][5] = "path";
+  return map;
+}
+
+// ============ MONSTER INSTANCE ============
+function statAt(base, lv) { return Math.floor(base + base * (lv - 1) * 0.18); }
+
+function expForLevel(lv) { return Math.floor(20 * Math.pow(lv, 1.5)); }
+
+function makeMon(speciesId, lv) {
+  const sp = SPECIES[speciesId];
+  const moves = [];
+  for (const [moveId, learnLv] of LEARNSETS[speciesId]) {
+    if (learnLv <= lv) moves.push(moveId);
+  }
+  // keep last 4
+  const finalMoves = moves.slice(-4);
+  const maxHp = statAt(sp.base.hp, lv);
+  return {
+    id: speciesId,
+    lv,
+    exp: 0,
+    nextExp: expForLevel(lv + 1),
+    hp: maxHp,
+    maxHp,
+    atk: statAt(sp.base.atk, lv),
+    def: statAt(sp.base.def, lv),
+    spd: statAt(sp.base.spd, lv),
+    moves: finalMoves.length ? finalMoves : ["tackle"],
+  };
+}
+
+// ============ UI HELPERS ============
+const $ = id => document.getElementById(id);
+function showScreen(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(name).classList.add("active");
+}
+function showOverlay(id) { $(id).classList.add("active"); }
+function closeOverlay(id) { $(id).classList.remove("active"); }
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+// ============ TITLE & STARTER ============
+$("btn-new").onclick = () => {
+  state = newGame();
+  state.map = genMap();
+  showStarterSelect();
+};
+$("btn-continue").onclick = () => {
+  if (loadGame()) {
+    showScreen("world");
+    drawWorld();
+  } else {
+    toast("セーブデータが ありません");
+  }
+};
+
+const STARTERS = ["flamy", "aquan", "greenly"];
+let chosenStarter = null;
+
+function showStarterSelect() {
+  showScreen("starter");
+  const grid = $("starter-grid");
+  grid.innerHTML = "";
+  chosenStarter = null;
+  STARTERS.forEach(id => {
+    const sp = SPECIES[id];
+    const card = document.createElement("div");
+    card.className = "starter-card";
+    card.dataset.id = id;
+    card.innerHTML = `
+      <div class="emoji">${sp.emoji}</div>
+      <div class="name">${sp.name}</div>
+      <div class="type"><span class="type-badge t-${sp.type}">${typeName(sp.type)}</span></div>
+    `;
+    card.onclick = () => {
+      document.querySelectorAll(".starter-card").forEach(c => c.classList.remove("selected"));
+      card.classList.add("selected");
+      chosenStarter = id;
+      const desc = {
+        flamy: "🔥 ほのお タイプ。こうげきが たかい あつい こころの モンスター。",
+        aquan: "💧 みず タイプ。まもりが かたく ちからもち。",
+        greenly: "🌿 くさ タイプ。バランスが よく そだてやすい。",
+      };
+      $("starter-desc").textContent = desc[id];
+      $("btn-confirm-starter").disabled = false;
+    };
+    grid.appendChild(card);
+  });
+}
+
+function typeName(t) {
+  return ({ fire: "ほのお", water: "みず", grass: "くさ", electric: "でんき", rock: "いわ", normal: "ノーマル" })[t] || t;
+}
+
+$("btn-confirm-starter").onclick = () => {
+  if (!chosenStarter) return;
+  state.team.push(makeMon(chosenStarter, 5));
+  state.started = true;
+  saveGame();
+  showScreen("world");
+  drawWorld();
+  toast(`${SPECIES[chosenStarter].name}と ぼうけんに しゅっぱつ！`);
+};
+
+// ============ WORLD ============
+function drawWorld() {
+  const map = $("map");
+  const wrap = $("map-wrap");
+  const w = state.mapW, h = state.mapH;
+  // size tiles to fit
+  const ww = wrap.clientWidth - 12;
+  const hh = wrap.clientHeight - 12;
+  const tile = Math.floor(Math.min(ww / w, hh / h));
+  map.style.gridTemplateColumns = `repeat(${w}, ${tile}px)`;
+  map.style.gridTemplateRows = `repeat(${h}, ${tile}px)`;
+  map.style.fontSize = (tile * 0.6) + "px";
+  map.innerHTML = "";
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const t = document.createElement("div");
+      t.className = "tile " + state.map[y][x];
+      if (x === state.px && y === state.py) t.classList.add("player");
+      map.appendChild(t);
+    }
+  }
+  updateLeadInfo();
+}
+
+function updateLeadInfo() {
+  const lead = currentLead();
+  if (!lead) return;
+  const sp = SPECIES[lead.id];
+  $("lead-icon").textContent = sp.emoji;
+  $("lead-name").textContent = sp.name;
+  $("lead-lv").textContent = lead.lv;
+  $("lead-hp").textContent = `${lead.hp}/${lead.maxHp}`;
+}
+
+function currentLead() {
+  // find first non-fainted
+  for (let i = 0; i < state.team.length; i++) {
+    const m = state.team[i];
+    if (m.hp > 0) { state.activeIdx = i; return m; }
+  }
+  return state.team[0];
+}
+
+function passable(x, y) {
+  if (x < 0 || y < 0 || x >= state.mapW || y >= state.mapH) return false;
+  const t = state.map[y][x];
+  return t !== "tree" && t !== "water" && t !== "rock";
+}
+
+function move(dx, dy) {
+  const nx = state.px + dx, ny = state.py + dy;
+  if (!passable(nx, ny)) return;
+  state.px = nx; state.py = ny;
+  state.steps++;
+  const tile = state.map[ny][nx];
+  if (tile === "heal") {
+    healAll();
+    toast("❤️ なかま 全員 げんき に なった！");
+  }
+  drawWorld();
+  // encounter chance
+  if (tile === "tallgrass" && Math.random() < 0.28) {
+    startWildEncounter();
+  }
+}
+
+document.querySelectorAll(".dbtn").forEach(b => {
+  const dir = b.dataset.dir;
+  const map = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+  b.onclick = () => { const [dx, dy] = map[dir]; move(dx, dy); };
+});
+
+// Keyboard support
+window.addEventListener("keydown", e => {
+  if (!$("world").classList.contains("active")) return;
+  if ($("overlay-team").classList.contains("active") || $("overlay-menu").classList.contains("active")) return;
+  if (e.key === "ArrowUp") move(0, -1);
+  else if (e.key === "ArrowDown") move(0, 1);
+  else if (e.key === "ArrowLeft") move(-1, 0);
+  else if (e.key === "ArrowRight") move(1, 0);
+});
+
+$("btn-search").onclick = () => {
+  if (Math.random() < 0.5) {
+    startWildEncounter();
+  } else if (Math.random() < 0.4) {
+    state.balls++;
+    toast("⚾ モンスターボールを みつけた！");
+  } else {
+    toast("なにも みつからなかった…");
+  }
+};
+
+$("btn-heal").onclick = () => {
+  healAll();
+  toast("❤️ なかま 全員 げんき に なった！");
+  updateLeadInfo();
+};
+
+function healAll() {
+  state.team.forEach(m => { m.hp = m.maxHp; });
+  saveGame();
+}
+
+$("btn-team").onclick = () => openTeam();
+$("btn-menu").onclick = () => {
+  $("m-count").textContent = state.team.length;
+  $("m-steps").textContent = state.steps;
+  $("m-wins").textContent = state.wins;
+  $("m-balls").textContent = state.ballsUsed;
+  showOverlay("overlay-menu");
+};
+
+function openTeam() {
+  const list = $("team-list");
+  list.innerHTML = "";
+  state.team.forEach((m, i) => {
+    const sp = SPECIES[m.id];
+    const item = document.createElement("div");
+    item.className = "team-item" + (m.hp <= 0 ? " fainted" : "") + (i === state.activeIdx ? " active" : "");
+    const hpPct = Math.max(0, (m.hp / m.maxHp) * 100);
+    item.innerHTML = `
+      <div class="emoji">${sp.emoji}</div>
+      <div class="info">
+        <div class="name">${sp.name} <span class="type-badge t-${sp.type}">${typeName(sp.type)}</span></div>
+        <div>Lv.${m.lv}　HP: ${m.hp}/${m.maxHp}</div>
+        <div class="mini-hp"><div style="width:${hpPct}%; background:${hpPct < 25 ? '#e74c3c' : hpPct < 50 ? '#f39c12' : '#2ecc71'};"></div></div>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+  showOverlay("overlay-team");
+}
+
+// ============ BATTLE ============
+let battle = null;
+
+function startWildEncounter() {
+  // pick a wild monster — exclude evolutions usually
+  const wildPool = ["catto", "doggo", "birdy", "bunny", "bee", "bug", "fishy", "snaky", "rocky", "ghosty", "pikari", "flamy", "aquan", "greenly"];
+  const wildId = wildPool[Math.floor(Math.random() * wildPool.length)];
+  const lead = currentLead();
+  const baseLv = Math.max(3, Math.min(lead.lv + Math.floor(Math.random() * 5) - 2, lead.lv + 2));
+  const wild = makeMon(wildId, baseLv);
+  battle = {
+    wild,
+    playerIdx: state.activeIdx,
+    msgQueue: [],
+    canAct: true,
+    caught: false,
+  };
+  setupBattleUI();
+  showScreen("battle");
+  setMsg(`やせいの ${SPECIES[wildId].name}が あらわれた！`);
+  showMainActions();
+}
+
+function getActive() { return state.team[battle.playerIdx]; }
+
+function setupBattleUI() {
+  const wild = battle.wild;
+  $("enemy-name").textContent = SPECIES[wild.id].name;
+  $("enemy-lv").textContent = wild.lv;
+  $("enemy-display").textContent = SPECIES[wild.id].emoji;
+  $("enemy-display").className = "mon-display";
+  updateEnemyHp();
+  updatePlayerStatus();
+}
+
+function updateEnemyHp() {
+  const wild = battle.wild;
+  const pct = Math.max(0, (wild.hp / wild.maxHp) * 100);
+  const fill = $("enemy-hp-fill");
+  fill.style.width = pct + "%";
+  fill.className = pct < 25 ? "low" : pct < 50 ? "mid" : "";
+}
+
+function updatePlayerStatus() {
+  const p = getActive();
+  $("p-name").textContent = SPECIES[p.id].name;
+  $("p-lv").textContent = p.lv;
+  $("player-display").textContent = SPECIES[p.id].emoji;
+  $("player-display").className = "mon-display";
+  const pct = Math.max(0, (p.hp / p.maxHp) * 100);
+  const fill = $("p-hp-fill");
+  fill.style.width = pct + "%";
+  fill.className = pct < 25 ? "low" : pct < 50 ? "mid" : "";
+  $("p-hp-text").textContent = `${p.hp}/${p.maxHp}`;
+  const expPct = Math.max(0, Math.min(100, (p.exp / p.nextExp) * 100));
+  $("p-exp-fill").style.width = expPct + "%";
+}
+
+function setMsg(t) { $("battle-msg").innerHTML = t; }
+
+function showMainActions() {
+  if (!battle.canAct) return;
+  const panel = $("battle-action-panel");
+  panel.innerHTML = `
+    <div class="battle-actions">
+      <button class="btn" id="ba-fight">⚔️ たたかう</button>
+      <button class="btn success" id="ba-catch">⚾ つかまえる (×${state.balls})</button>
+      <button class="btn warning" id="ba-swap">🔄 こうたい</button>
+      <button class="btn secondary" id="ba-run">🏃 にげる</button>
+    </div>
+  `;
+  $("ba-fight").onclick = showMoves;
+  $("ba-catch").onclick = doCatch;
+  $("ba-swap").onclick = openSwap;
+  $("ba-run").onclick = doRun;
+}
+
+function showMoves() {
+  const p = getActive();
+  const panel = $("battle-action-panel");
+  panel.innerHTML = `<div class="move-list" id="moves"></div>
+    <button class="btn secondary" id="moves-back" style="padding:8px; font-size:13px;">もどる</button>`;
+  const ml = $("moves");
+  p.moves.forEach(mvId => {
+    const mv = MOVES[mvId];
+    const b = document.createElement("button");
+    b.className = "move-btn";
+    b.innerHTML = `<div class="move-name">${mv.name}</div>
+                   <div class="move-info"><span class="type-badge t-${mv.type}">${typeName(mv.type)}</span> いりょく:${mv.power}</div>`;
+    b.onclick = () => playerAttack(mvId);
+    ml.appendChild(b);
+  });
+  $("moves-back").onclick = showMainActions;
+}
+
+function calcDamage(attacker, defender, moveId) {
+  const mv = MOVES[moveId];
+  if (Math.random() > mv.acc) return { dmg: 0, miss: true, eff: 1 };
+  const atkType = mv.type;
+  const defType = SPECIES[defender.id].type;
+  const eff = typeMult(atkType, defType);
+  const stab = SPECIES[attacker.id].type === atkType ? 1.5 : 1;
+  const rand = 0.85 + Math.random() * 0.3;
+  const base = (((2 * attacker.lv) / 5 + 2) * mv.power * (attacker.atk / Math.max(1, defender.def))) / 20 + 2;
+  const dmg = Math.max(1, Math.floor(base * eff * stab * rand * 0.5));
+  return { dmg, miss: false, eff };
+}
+
+async function playerAttack(moveId) {
+  if (!battle.canAct) return;
+  battle.canAct = false;
+  $("battle-action-panel").innerHTML = "";
+  const p = getActive();
+  const w = battle.wild;
+  // speed determines order
+  const playerFirst = p.spd >= w.spd;
+  if (playerFirst) {
+    await execAttack(p, w, moveId, true);
+    if (w.hp > 0) await enemyTurn();
+  } else {
+    await enemyTurn();
+    if (p.hp > 0) await execAttack(p, w, moveId, true);
+  }
+  if (battle.wild.hp <= 0) { endBattleWin(); return; }
+  if (getActive().hp <= 0) { onPlayerFaint(); return; }
+  battle.canAct = true;
+  showMainActions();
+}
+
+async function enemyTurn() {
+  const w = battle.wild;
+  const p = getActive();
+  const moveId = w.moves[Math.floor(Math.random() * w.moves.length)];
+  await execAttack(w, p, moveId, false);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function execAttack(attacker, defender, moveId, isPlayerAttacker) {
+  const mv = MOVES[moveId];
+  const atkName = isPlayerAttacker ? SPECIES[attacker.id].name : `やせいの${SPECIES[attacker.id].name}`;
+  setMsg(`${atkName}の ${mv.name}！`);
+  const atkEl = isPlayerAttacker ? $("player-display") : $("enemy-display");
+  const defEl = isPlayerAttacker ? $("enemy-display") : $("player-display");
+  atkEl.classList.add("attacking");
+  await sleep(400);
+  atkEl.classList.remove("attacking");
+
+  const { dmg, miss, eff } = calcDamage(attacker, defender, moveId);
+  if (miss) {
+    setMsg(`しかし こうげきは はずれた！`);
+    await sleep(900);
+    return;
+  }
+  defender.hp = Math.max(0, defender.hp - dmg);
+  defEl.classList.add("hurt");
+  await sleep(400);
+  defEl.classList.remove("hurt");
+  if (isPlayerAttacker) updateEnemyHp(); else updatePlayerStatus();
+
+  let extra = "";
+  if (eff > 1) extra = " こうかは ばつぐん だ！";
+  else if (eff < 1 && eff > 0) extra = " こうかは いまひとつ…";
+  else if (eff === 0) extra = " こうかが ない…";
+  if (extra) { setMsg(extra.trim()); await sleep(800); }
+  if (defender.hp <= 0) {
+    setMsg(`${isPlayerAttacker ? `やせいの${SPECIES[defender.id].name}` : SPECIES[defender.id].name}は たおれた！`);
+    defEl.classList.add("faint");
+    await sleep(900);
+  }
+}
+
+function onPlayerFaint() {
+  battle.canAct = false;
+  setMsg(`${SPECIES[getActive().id].name}は たおれた…`);
+  // check if any healthy mon left
+  const alive = state.team.findIndex(m => m.hp > 0);
+  setTimeout(() => {
+    if (alive >= 0) {
+      openSwap(true); // forced swap
+    } else {
+      // black out
+      setMsg("ぼうけんに やぶれた… 拠点に もどされた。");
+      setTimeout(() => {
+        healAll();
+        state.px = 5; state.py = 7;
+        saveGame();
+        showScreen("world");
+        drawWorld();
+      }, 1500);
+    }
+  }, 1100);
+}
+
+function openSwap(forced = false) {
+  const list = $("switch-list");
+  list.innerHTML = "";
+  state.team.forEach((m, i) => {
+    if (i === battle.playerIdx && !forced) return;
+    const sp = SPECIES[m.id];
+    const item = document.createElement("div");
+    item.className = "team-item" + (m.hp <= 0 ? " fainted" : "");
+    const hpPct = Math.max(0, (m.hp / m.maxHp) * 100);
+    item.innerHTML = `
+      <div class="emoji">${sp.emoji}</div>
+      <div class="info">
+        <div class="name">${sp.name}</div>
+        <div>Lv.${m.lv}　HP: ${m.hp}/${m.maxHp}</div>
+        <div class="mini-hp"><div style="width:${hpPct}%;"></div></div>
+      </div>
+    `;
+    if (m.hp <= 0) {
+      item.onclick = () => toast("この モンスターは たたかえない");
+    } else {
+      item.onclick = async () => {
+        closeOverlay("overlay-switch");
+        await doSwap(i, forced);
+      };
+    }
+    list.appendChild(item);
+  });
+  $("switch-cancel").style.display = forced ? "none" : "block";
+  showOverlay("overlay-switch");
+}
+
+async function doSwap(newIdx, forced) {
+  battle.playerIdx = newIdx;
+  state.activeIdx = newIdx;
+  setMsg(`いけ！ ${SPECIES[state.team[newIdx].id].name}！`);
+  updatePlayerStatus();
+  await sleep(800);
+  if (!forced) {
+    // skip player turn, enemy attacks
+    await enemyTurn();
+    if (getActive().hp <= 0) { onPlayerFaint(); return; }
+  }
+  battle.canAct = true;
+  showMainActions();
+}
+
+async function doRun() {
+  battle.canAct = false;
+  const p = getActive(), w = battle.wild;
+  const chance = Math.min(0.95, 0.5 + (p.spd - w.spd) * 0.05);
+  if (Math.random() < chance) {
+    setMsg("うまく にげきれた！");
+    await sleep(900);
+    showScreen("world");
+    drawWorld();
+  } else {
+    setMsg("にげられない！");
+    await sleep(700);
+    await enemyTurn();
+    if (getActive().hp <= 0) { onPlayerFaint(); return; }
+    battle.canAct = true;
+    showMainActions();
+  }
+}
+
+async function doCatch() {
+  if (state.balls <= 0) {
+    toast("ボールが ない！");
+    return;
+  }
+  battle.canAct = false;
+  state.balls--;
+  state.ballsUsed++;
+  $("battle-action-panel").innerHTML = "";
+  setMsg("モンスターボールを なげた！");
+  const arena = document.querySelector(".battle-arena");
+  const ball = document.createElement("div");
+  ball.className = "pokeball throw";
+  ball.textContent = "⚾";
+  arena.appendChild(ball);
+  await sleep(800);
+  ball.classList.remove("throw");
+  ball.style.left = "50%"; ball.style.top = "30%";
+  // catch rate
+  const w = battle.wild;
+  const hpFactor = 1 - (w.hp / w.maxHp);
+  const baseRate = 0.30 + hpFactor * 0.55;
+  const lvBonus = Math.max(0, (20 - w.lv) * 0.01);
+  const rate = Math.min(0.95, baseRate + lvBonus);
+  let shakes = 0;
+  for (let i = 0; i < 3; i++) {
+    ball.classList.add("shake");
+    setMsg(`カタッ…`);
+    await sleep(700);
+    ball.classList.remove("shake");
+    if (Math.random() < rate) shakes++; else break;
+  }
+  if (shakes >= 3 || Math.random() < rate * 0.6) {
+    // caught
+    ball.remove();
+    setMsg(`やったー！ ${SPECIES[w.id].name}を つかまえた！`);
+    $("enemy-display").classList.add("catching");
+    await sleep(1200);
+    if (state.team.length < 6) {
+      state.team.push(w);
+    } else {
+      toast("なかまが いっぱいで にがした…");
+    }
+    battle.caught = true;
+    saveGame();
+    setTimeout(() => {
+      showScreen("world");
+      drawWorld();
+    }, 1200);
+    return;
+  }
+  ball.remove();
+  setMsg(`しまった！ にげられた！`);
+  await sleep(900);
+  await enemyTurn();
+  if (getActive().hp <= 0) { onPlayerFaint(); return; }
+  battle.canAct = true;
+  showMainActions();
+}
+
+async function endBattleWin() {
+  battle.canAct = false;
+  state.wins++;
+  const p = getActive();
+  const w = battle.wild;
+  const gain = Math.max(8, Math.floor(w.lv * w.lv * 0.8 + 10));
+  setMsg(`${SPECIES[p.id].name}は ${gain} の けいけんちを えた！`);
+  await sleep(1000);
+  p.exp += gain;
+  while (p.exp >= p.nextExp) {
+    p.exp -= p.nextExp;
+    p.lv++;
+    const ratioHp = p.hp / p.maxHp;
+    const sp = SPECIES[p.id];
+    p.maxHp = statAt(sp.base.hp, p.lv);
+    p.atk = statAt(sp.base.atk, p.lv);
+    p.def = statAt(sp.base.def, p.lv);
+    p.spd = statAt(sp.base.spd, p.lv);
+    p.hp = Math.max(1, Math.floor(p.maxHp * Math.min(1, ratioHp + 0.2)));
+    p.nextExp = expForLevel(p.lv + 1);
+    setMsg(`🎉 ${SPECIES[p.id].name}は レベル ${p.lv}に あがった！`);
+    updatePlayerStatus();
+    await sleep(1100);
+    // learn new moves
+    for (const [moveId, learnLv] of LEARNSETS[p.id]) {
+      if (learnLv === p.lv && !p.moves.includes(moveId)) {
+        if (p.moves.length < 4) {
+          p.moves.push(moveId);
+          setMsg(`✨ ${SPECIES[p.id].name}は ${MOVES[moveId].name}を おぼえた！`);
+        } else {
+          p.moves.shift();
+          p.moves.push(moveId);
+          setMsg(`✨ わざを わすれて ${MOVES[moveId].name}を おぼえた！`);
+        }
+        await sleep(1100);
+      }
+    }
+    // evolution
+    if (sp.evo && p.lv >= sp.evo.lv) {
+      setMsg(`✨ おや？ ${SPECIES[p.id].name}の ようすが…！`);
+      $("player-display").style.transition = "transform 1s, filter 1s";
+      $("player-display").style.filter = "brightness(5)";
+      await sleep(1200);
+      const oldName = SPECIES[p.id].name;
+      p.id = sp.evo.to;
+      const newSp = SPECIES[p.id];
+      // recalc with new species base
+      const ratioHp2 = p.hp / p.maxHp;
+      p.maxHp = statAt(newSp.base.hp, p.lv);
+      p.atk = statAt(newSp.base.atk, p.lv);
+      p.def = statAt(newSp.base.def, p.lv);
+      p.spd = statAt(newSp.base.spd, p.lv);
+      p.hp = Math.floor(p.maxHp * ratioHp2);
+      $("player-display").style.filter = "";
+      updatePlayerStatus();
+      setMsg(`🎊 ${oldName}は ${newSp.name}に しんかした！`);
+      await sleep(1500);
+    }
+  }
+  updatePlayerStatus();
+  saveGame();
+  await sleep(500);
+  showScreen("world");
+  drawWorld();
+}
+
+// ============ SAVE / LOAD ============
+function saveGame() {
+  if (!state || !state.started) return;
+  localStorage.setItem("pmon_save", JSON.stringify(state));
+}
+function loadGame() {
+  try {
+    const raw = localStorage.getItem("pmon_save");
+    if (!raw) return false;
+    const obj = JSON.parse(raw);
+    if (!obj.started) return false;
+    state = obj;
+    if (!state.map || !state.map.length) state.map = genMap();
+    return true;
+  } catch { return false; }
+}
+
+// ============ INIT ============
+window.addEventListener("resize", () => {
+  if ($("world").classList.contains("active") && state) drawWorld();
+});
+
+// Prevent overscroll on iOS
+document.addEventListener("touchmove", e => {
+  if (e.target.closest("#map-wrap, .modal")) return;
+  e.preventDefault();
+}, { passive: false });
+
+// Auto-show continue if save exists
+window.addEventListener("DOMContentLoaded", () => {
+  if (!localStorage.getItem("pmon_save")) {
+    $("btn-continue").style.opacity = "0.4";
+  }
+});
+</script>
+</body>
+</html>
