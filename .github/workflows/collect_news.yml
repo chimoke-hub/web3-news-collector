@@ -2,8 +2,8 @@ name: WEB3 News Collector
 
 on:
   schedule:
-    # Every day at 00:00 UTC = 09:00 JST
-    - cron: "0 0 * * *"
+    # Every day at 21:30 UTC = 06:30 JST (避ピーク時間帯)
+    - cron: "30 21 * * *"
   workflow_dispatch: # Allow manual trigger from GitHub UI
 
 permissions:
