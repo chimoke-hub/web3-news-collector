@@ -9,6 +9,7 @@ layout: default
 
 ## レポート一覧
 
+- [2026-09-02](/web3-news-collector/2026-09-02)
 - [2026-09-01](/web3-news-collector/2026-09-01)
 - [2026-08-31](/web3-news-collector/2026-08-31)
 - [2026-08-30](/web3-news-collector/2026-08-30)
